@@ -1,17 +1,45 @@
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { ErrorState } from "@/components/ui/error-state"
 import { UserCheck, Users, Clock, TrendingUp } from "lucide-react"
+import { useEventMetrics } from "@/lib/api-hooks"
 
-const credentialsStats = {
-  totalParticipants: 450,
-  checkedIn: 287,
-  checkInRate: 63.8,
-  avgCheckInTime: "2.3 min",
-  peakHour: "09:00 - 10:00",
-  currentHourCheckIns: 45,
+interface CredentialsStatsProps {
+  eventId: string
 }
 
-export function CredentialsStats() {
+export function CredentialsStats({ eventId }: CredentialsStatsProps) {
+  const { data: stats, isLoading, error } = useEventMetrics(eventId)
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="bg-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+              <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 w-16 bg-muted animate-pulse rounded mb-2" />
+              <div className="h-2 w-full bg-muted animate-pulse rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return <ErrorState message={error} onRetry={() => window.location.reload()} />
+  }
+
+  if (!stats) {
+    return null
+  }
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card className="bg-card">
@@ -20,10 +48,10 @@ export function CredentialsStats() {
           <UserCheck className="h-4 w-4 text-chart-1" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-foreground">{credentialsStats.checkedIn}</div>
+          <div className="text-2xl font-bold text-foreground">{stats.checkedIn}</div>
           <div className="mt-2">
-            <Progress value={credentialsStats.checkInRate} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-1">{credentialsStats.checkInRate}% dos participantes</p>
+            <Progress value={stats.checkInRate} className="h-2" />
+            <p className="text-xs text-muted-foreground mt-1">{stats.checkInRate.toFixed(1)}% dos participantes</p>
           </div>
         </CardContent>
       </Card>
@@ -34,9 +62,9 @@ export function CredentialsStats() {
           <Users className="h-4 w-4 text-chart-2" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-foreground">{credentialsStats.totalParticipants}</div>
+          <div className="text-2xl font-bold text-foreground">{stats.totalParticipants}</div>
           <p className="text-xs text-muted-foreground mt-1">
-            {credentialsStats.totalParticipants - credentialsStats.checkedIn} ainda não fizeram check-in
+            {stats.totalParticipants - stats.checkedIn} ainda não fizeram check-in
           </p>
         </CardContent>
       </Card>
@@ -47,7 +75,7 @@ export function CredentialsStats() {
           <Clock className="h-4 w-4 text-chart-3" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-foreground">{credentialsStats.avgCheckInTime}</div>
+          <div className="text-2xl font-bold text-foreground">{stats.avgCheckInTime}</div>
           <p className="text-xs text-muted-foreground mt-1">Por check-in</p>
         </CardContent>
       </Card>
@@ -58,8 +86,8 @@ export function CredentialsStats() {
           <TrendingUp className="h-4 w-4 text-chart-4" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-foreground">{credentialsStats.currentHourCheckIns}</div>
-          <p className="text-xs text-muted-foreground mt-1">Pico: {credentialsStats.peakHour}</p>
+          <div className="text-2xl font-bold text-foreground">{stats.currentHourCheckIns}</div>
+          <p className="text-xs text-muted-foreground mt-1">Pico: {stats.peakHour}</p>
         </CardContent>
       </Card>
     </div>

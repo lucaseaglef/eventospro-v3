@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,67 +18,74 @@ import {
   ArrowLeft,
 } from "lucide-react"
 import Link from "next/link"
-
-// Mock order data - in real app this would come from API
-const orderData = {
-  id: "VENDA-001",
-  status: "confirmed",
-  createdAt: "2024-12-15T10:30:00Z",
-  event: {
-    name: "TechConf São Paulo 2024",
-    date: "15 de dezembro de 2024",
-    time: "09:00 - 18:00",
-    location: "Centro de Convenções Anhembi - São Paulo, SP",
-  },
-  buyer: {
-    name: "João Silva",
-    email: "joao.silva@email.com",
-  },
-  tickets: [
-    {
-      id: 1,
-      name: "Ingresso VIP",
-      quantity: 2,
-      price: 299,
-      participants: ["João Silva", "Maria Silva"],
-    },
-    {
-      id: 2,
-      name: "Ingresso Regular",
-      quantity: 1,
-      price: 149,
-      participants: ["Pedro Santos"],
-    },
-  ],
-  payment: {
-    method: "credit",
-    subtotal: 747,
-    fee: 37.35,
-    total: 784.35,
-  },
-}
+import { useOrders } from "@/lib/api-hooks"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ErrorState } from "@/components/ui/error-state"
 
 export default function OrderConfirmationPage({ params }: { params: { eventId: string } }) {
   const [downloadingTickets, setDownloadingTickets] = useState(false)
+  const [orderId, setOrderId] = useState<string | null>(null)
+
+  const {
+    data: ordersData,
+    isLoading,
+    error,
+  } = useOrders(params.eventId, {
+    limit: 1,
+    status: "confirmado",
+    orderId: orderId || undefined,
+  })
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const orderIdFromUrl = urlParams.get("orderId")
+    if (orderIdFromUrl) {
+      setOrderId(orderIdFromUrl)
+    } else {
+      const savedOrderId = localStorage.getItem("lastOrderId")
+      if (savedOrderId) {
+        setOrderId(savedOrderId)
+      }
+    }
+  }, [])
 
   const handleDownloadTickets = async () => {
     setDownloadingTickets(true)
-    // Simulate download process
-    setTimeout(() => {
+    try {
+      if (ordersData?.data && ordersData.data.length > 0) {
+        const orderData = ordersData.data[0]
+        const response = await fetch(`/api/orders/${orderData.id}/tickets/download`)
+        if (response.ok) {
+          const blob = await response.blob()
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement("a")
+          a.href = url
+          a.download = `ingressos-${orderData.id}.pdf`
+          document.body.appendChild(a)
+          a.click()
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao baixar ingressos:", error)
+    } finally {
       setDownloadingTickets(false)
-      // In real app, this would trigger actual download
-      console.log("Downloading tickets...")
-    }, 2000)
+    }
   }
 
   const getPaymentMethodName = (method: string) => {
     switch (method) {
-      case "credit":
+      case "cartao_credito":
         return "Cartão de Crédito"
       case "pix":
         return "PIX"
       case "boleto":
-        return "Boleto"
+        return "Boleto Bancário"
+      case "transferencia_bancaria":
+        return "Transferência Bancária"
+      case "dinheiro":
+        return "Dinheiro"
       default:
         return method
     }
@@ -86,16 +93,37 @@ export default function OrderConfirmationPage({ params }: { params: { eventId: s
 
   const getPaymentMethodIcon = (method: string) => {
     switch (method) {
-      case "credit":
+      case "cartao_credito":
         return <CreditCard className="h-4 w-4" />
       case "pix":
         return <QrCode className="h-4 w-4" />
       case "boleto":
         return <Banknote className="h-4 w-4" />
+      case "transferencia_bancaria":
+        return <Banknote className="h-4 w-4" />
       default:
         return <CreditCard className="h-4 w-4" />
     }
   }
+
+  if (isLoading) {
+    return <LoadingSpinner message="Carregando confirmação do pedido..." />
+  }
+
+  if (error || !ordersData?.data || ordersData.data.length === 0) {
+    return (
+      <ErrorState
+        message="Não foi possível carregar os dados do pedido"
+        action={
+          <Link href={`/events/${params.eventId}`}>
+            <Button>Voltar ao Evento</Button>
+          </Link>
+        }
+      />
+    )
+  }
+
+  const orderData = ordersData.data[0]
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -126,7 +154,7 @@ export default function OrderConfirmationPage({ params }: { params: { eventId: s
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Parabéns! Sua compra foi confirmada</h1>
             <p className="text-lg text-gray-600 mb-4">
-              Enviamos os detalhes da sua compra para <strong>{orderData.buyer.email}</strong>
+              Enviamos os detalhes da sua compra para <strong>{orderData.buyerEmail}</strong>
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
               <span>Pedido:</span>
@@ -148,30 +176,32 @@ export default function OrderConfirmationPage({ params }: { params: { eventId: s
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {orderData.tickets.map((ticket) => (
-                    <div key={ticket.id} className="border rounded-lg p-4">
+                  {orderData.items?.map((item) => (
+                    <div key={item.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <h4 className="font-semibold">{ticket.name}</h4>
-                          <p className="text-sm text-gray-600">Quantidade: {ticket.quantity}</p>
+                          <h4 className="font-semibold">{item.ticketName}</h4>
+                          <p className="text-sm text-gray-600">Quantidade: {item.quantity}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">
-                            R$ {(ticket.price * ticket.quantity).toFixed(2).replace(".", ",")}
+                            R$ {(item.price * item.quantity).toFixed(2).replace(".", ",")}
                           </p>
-                          <p className="text-sm text-gray-600">R$ {ticket.price.toFixed(2).replace(".", ",")} cada</p>
+                          <p className="text-sm text-gray-600">R$ {item.price.toFixed(2).replace(".", ",")} cada</p>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Participantes:</p>
-                        <div className="space-y-1">
-                          {ticket.participants.map((participant, index) => (
-                            <p key={index} className="text-sm text-gray-600">
-                              • {participant}
-                            </p>
-                          ))}
+                      {item.participants && item.participants.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 mb-1">Participantes:</p>
+                          <div className="space-y-1">
+                            {item.participants.map((participant, index) => (
+                              <p key={index} className="text-sm text-gray-600">
+                                • {participant}
+                              </p>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ))}
 
@@ -180,23 +210,25 @@ export default function OrderConfirmationPage({ params }: { params: { eventId: s
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Subtotal</span>
-                      <span>R$ {orderData.payment.subtotal.toFixed(2).replace(".", ",")}</span>
+                      <span>R$ {orderData.subtotal?.toFixed(2).replace(".", ",") || "0,00"}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>Taxa de serviço</span>
-                      <span>R$ {orderData.payment.fee.toFixed(2).replace(".", ",")}</span>
+                      <span>R$ {orderData.serviceFee?.toFixed(2).replace(".", ",") || "0,00"}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-bold text-lg">
                       <span>Total Pago</span>
-                      <span className="text-green-600">R$ {orderData.payment.total.toFixed(2).replace(".", ",")}</span>
+                      <span className="text-green-600">
+                        R$ {orderData.total?.toFixed(2).replace(".", ",") || "0,00"}
+                      </span>
                     </div>
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-sm">
-                      {getPaymentMethodIcon(orderData.payment.method)}
-                      <span>Pago via {getPaymentMethodName(orderData.payment.method)}</span>
+                      {getPaymentMethodIcon(orderData.paymentMethod || "cartao_credito")}
+                      <span>Pago via {getPaymentMethodName(orderData.paymentMethod || "cartao_credito")}</span>
                       <Badge variant="secondary" className="bg-green-100 text-green-800">
                         Confirmado
                       </Badge>
@@ -220,10 +252,10 @@ export default function OrderConfirmationPage({ params }: { params: { eventId: s
                   </p>
 
                   <div className="space-y-4">
-                    {orderData.tickets.map((ticket) =>
-                      ticket.participants.map((participant, index) => (
+                    {orderData.items?.map((item) =>
+                      item.participants?.map((participant, index) => (
                         <div
-                          key={`${ticket.id}-${index}`}
+                          key={`${item.id}-${index}`}
                           className="border rounded-lg p-6 bg-white flex items-center justify-between"
                         >
                           <div className="flex items-center gap-6">
@@ -231,12 +263,12 @@ export default function OrderConfirmationPage({ params }: { params: { eventId: s
                               <QrCode className="h-12 w-12 text-gray-400" />
                             </div>
                             <div>
-                              <h4 className="text-lg font-semibold text-gray-900">{ticket.name}</h4>
+                              <h4 className="text-lg font-semibold text-gray-900">{item.ticketName}</h4>
                               <p className="text-gray-600 mb-1">{participant}</p>
                               <div className="flex items-center gap-4 text-sm text-gray-500">
                                 <span>Pedido: {orderData.id}</span>
                                 <span>•</span>
-                                <span>Valor: R$ {ticket.price.toFixed(2).replace(".", ",")}</span>
+                                <span>Valor: R$ {item.price.toFixed(2).replace(".", ",")}</span>
                               </div>
                             </div>
                           </div>
@@ -271,7 +303,7 @@ export default function OrderConfirmationPage({ params }: { params: { eventId: s
                       </div>
                       <div>
                         <p className="font-medium text-sm">Confirmação por E-mail</p>
-                        <p className="text-xs text-gray-600">Enviado para {orderData.buyer.email}</p>
+                        <p className="text-xs text-gray-600">Enviado para {orderData.buyerEmail}</p>
                       </div>
                     </div>
 

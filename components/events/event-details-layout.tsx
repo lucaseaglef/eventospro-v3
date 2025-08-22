@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 

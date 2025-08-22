@@ -3,6 +3,8 @@
 import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ErrorState } from "@/components/ui/error-state"
 import {
   ArrowLeft,
   Users,
@@ -21,6 +23,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useEvent } from "@/lib/api-hooks"
 
 interface EventManageLayoutProps {
   children: React.ReactNode
@@ -36,28 +39,40 @@ const sections = [
   { id: "certificados", label: "Certificados", icon: Award },
   { id: "cupons", label: "Cupons", icon: Tag },
   { id: "checkout", label: "Checkout", icon: ShoppingCart },
-  { id: "formulario", label: "Formulário", icon: FileText }, // Added form builder tab
+  { id: "formulario", label: "Formulário", icon: FileText },
   { id: "configuracoes", label: "Configurações", icon: Settings },
 ]
 
-// Mock event data
-const eventData = {
-  id: "1",
-  name: "Tech Conference 2024",
-  date: "2024-03-15",
-  time: "09:00",
-  location: "Centro de Convenções São Paulo",
-  banner: "/tech-conference-hall.png",
-  status: "active",
-  totalTickets: 500,
-  soldTickets: 387,
-}
-
 export function EventManageLayout({ children, eventId, activeSection }: EventManageLayoutProps) {
   const router = useRouter()
+  const { data: event, isLoading, error } = useEvent(eventId)
 
   const handleSectionChange = (section: string) => {
     router.push(`/events/${eventId}/manage?section=${section}`)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <ErrorState message={error} onRetry={() => window.location.reload()} />
+      </div>
+    )
+  }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <ErrorState message="Evento não encontrado" />
+      </div>
+    )
   }
 
   return (
@@ -75,14 +90,18 @@ export function EventManageLayout({ children, eventId, activeSection }: EventMan
               </Link>
               <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-2xl font-bold text-foreground">{eventData.name}</h1>
+                <h1 className="text-2xl font-bold text-foreground">{event.name}</h1>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span>
-                    {new Date(eventData.date).toLocaleDateString("pt-BR")} às {eventData.time}
+                    {new Date(event.date).toLocaleDateString("pt-BR")} às {event.time}
                   </span>
-                  <span>{eventData.location}</span>
-                  <Badge variant={eventData.status === "active" ? "default" : "secondary"}>
-                    {eventData.status === "active" ? "Ativo" : "Rascunho"}
+                  <span>{event.location}</span>
+                  <Badge
+                    variant={
+                      event.status === "active" ? "default" : event.status === "draft" ? "secondary" : "destructive"
+                    }
+                  >
+                    {event.status === "active" ? "Ativo" : event.status === "draft" ? "Rascunho" : "Cancelado"}
                   </Badge>
                 </div>
               </div>

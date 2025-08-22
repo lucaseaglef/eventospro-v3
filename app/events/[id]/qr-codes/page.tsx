@@ -1,20 +1,35 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { QRCodeHeader } from "@/components/qr-code-header"
 import { QRCodeStats } from "@/components/qr-code-stats"
 import { QRCodeGenerator } from "@/components/qr-code-generator"
 import { ParticipantsQRList } from "@/components/participants-qr-list"
 
-// Mock data - in a real app, this would come from an API
-const eventData = {
-  id: "1",
-  name: "Tech Summit 2024",
-  totalParticipants: 450,
-  qrCodesGenerated: 420,
-  qrCodesSent: 380,
-  qrCodesDownloaded: 340,
+interface QRCodesPageProps {
+  params: { id: string }
 }
 
-export default function QRCodesPage({ params }: { params: { id: string } }) {
+async function getEventData(eventId: string) {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/qr-stats`)
+    if (!response.ok) {
+      throw new Error("Dados do evento não encontrados")
+    }
+    return await response.json()
+  } catch (error) {
+    return {
+      id: eventId,
+      name: "Carregando evento...",
+      totalParticipants: 0,
+      qrCodesGenerated: 0,
+      qrCodesSent: 0,
+      qrCodesDownloaded: 0,
+    }
+  }
+}
+
+export default async function QRCodesPage({ params }: QRCodesPageProps) {
+  const eventData = await getEventData(params.id)
+
   return (
     <DashboardLayout>
       <div className="flex-1 space-y-6 p-6">

@@ -1,39 +1,47 @@
 import { QRCodeViewer } from "@/components/qr-code-viewer"
 
-// Mock data - in a real app, this would come from an API based on the QR code
-const participantData = {
-  code: "QR001234",
-  participant: {
-    name: "Ana Silva",
-    email: "ana.silva@email.com",
-    company: "TechCorp",
-    position: "Desenvolvedora Senior",
-    avatar: "/professional-woman.png",
-  },
-  event: {
-    name: "Tech Summit 2024",
-    date: "2024-12-15",
-    time: "09:00",
-    location: "Centro de Convenções Anhembi",
-    address: "Av. Olavo Fontoura, 1209 - Santana, São Paulo - SP",
-  },
-  ticket: {
-    type: "VIP Experience",
-    price: "R$ 499,90",
-    features: [
-      "Acesso a todas as palestras",
-      "Material premium do evento",
-      "Coffee breaks e almoço VIP",
-      "Certificado",
-      "Networking exclusivo",
-      "Meet & Greet com palestrantes",
-    ],
-  },
-  status: "Válido",
-  generatedAt: "2024-12-10 14:30",
-  validUntil: "2024-12-17 23:59",
+interface QRViewerPageProps {
+  params: { code: string }
 }
 
-export default function QRViewerPage({ params }: { params: { code: string } }) {
+async function getParticipantByQRCode(code: string) {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/qr-codes/${code}`)
+    if (!response.ok) {
+      throw new Error("QR Code não encontrado")
+    }
+    return await response.json()
+  } catch (error) {
+    return {
+      code,
+      participant: {
+        name: "Participante não encontrado",
+        email: "email@nao-encontrado.com",
+        company: "Empresa não informada",
+        position: "Cargo não informado",
+        avatar: "/diverse-user-avatars.png",
+      },
+      event: {
+        name: "Evento não encontrado",
+        date: new Date().toISOString().split("T")[0],
+        time: "00:00",
+        location: "Local não informado",
+        address: "Endereço não informado",
+      },
+      ticket: {
+        type: "Ingresso não identificado",
+        price: "R$ 0,00",
+        features: ["QR Code inválido ou expirado"],
+      },
+      status: "Inválido",
+      generatedAt: new Date().toISOString(),
+      validUntil: new Date().toISOString(),
+    }
+  }
+}
+
+export default async function QRViewerPage({ params }: QRViewerPageProps) {
+  const participantData = await getParticipantByQRCode(params.code)
+
   return <QRCodeViewer data={participantData} />
 }

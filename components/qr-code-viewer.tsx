@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { getQRStatusDisplay } from "@/lib/status-utils"
 import {
   QrCode,
   Calendar,
@@ -12,7 +13,7 @@ import {
   Ticket,
   Check,
   Download,
-  PrinterIcon as Print,
+  Printer as Print,
 } from "lucide-react"
 
 interface QRCodeViewerProps {
@@ -37,25 +38,14 @@ interface QRCodeViewerProps {
       price: string
       features: string[]
     }
-    status: string
+    status: "Válido" | "Usado" | "Expirado"
     generatedAt: string
     validUntil: string
   }
 }
 
 export function QRCodeViewer({ data }: QRCodeViewerProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Válido":
-        return "bg-chart-1 text-white"
-      case "Usado":
-        return "bg-chart-4 text-white"
-      case "Expirado":
-        return "bg-chart-3 text-white"
-      default:
-        return "bg-muted text-muted-foreground"
-    }
-  }
+  const statusDisplay = getQRStatusDisplay(data.status)
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -80,7 +70,7 @@ export function QRCodeViewer({ data }: QRCodeViewerProps) {
 
               <div>
                 <p className="text-lg font-mono font-bold text-foreground">{data.code}</p>
-                <Badge className={getStatusColor(data.status)}>{data.status}</Badge>
+                <Badge className={statusDisplay.color}>{statusDisplay.label}</Badge>
               </div>
 
               <div className="text-sm text-muted-foreground">

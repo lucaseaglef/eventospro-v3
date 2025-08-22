@@ -1,5 +1,5 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { EventsPageGrid } from "@/components/events-page-grid"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
+import { EventsPageGrid } from "@/components/events/events-page-grid"
 import { Button } from "@/components/ui/button"
 import { Plus, Filter, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"

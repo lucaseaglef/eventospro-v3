@@ -1,6 +1,6 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { SalesOverview } from "@/components/sales-overview"
-import { OrdersList } from "@/components/orders-list"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
+import { SalesOverview } from "@/components/dashboard/sales-overview"
+import { OrdersList } from "@/components/dashboard/orders-list"
 
 export default function SalesPage() {
   return (

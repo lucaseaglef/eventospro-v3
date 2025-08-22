@@ -4,42 +4,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Download, TrendingUp, DollarSign, CreditCard, Banknote, RefreshCw } from "lucide-react"
+import { useEventMetrics, useOrders } from "@/lib/api-hooks"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ErrorState } from "@/components/ui/error-state"
+import { EmptyState } from "@/components/ui/empty-state"
 
 interface FinancialSectionProps {
   eventId: string
 }
 
-const transactions = [
-  {
-    id: "1",
-    participant: "Ana Silva",
-    ticketType: "VIP",
-    amount: 299.99,
-    method: "credit_card",
-    status: "completed",
-    date: "2024-02-15T10:30:00",
-  },
-  {
-    id: "2",
-    participant: "Carlos Santos",
-    ticketType: "Premium",
-    amount: 199.99,
-    method: "pix",
-    status: "completed",
-    date: "2024-02-15T14:22:00",
-  },
-  {
-    id: "3",
-    participant: "Maria Oliveira",
-    ticketType: "Standard",
-    amount: 99.99,
-    method: "credit_card",
-    status: "pending",
-    date: "2024-02-16T09:15:00",
-  },
-]
-
 export function FinancialSection({ eventId }: FinancialSectionProps) {
+  const { data: metrics, isLoading: metricsLoading, error: metricsError } = useEventMetrics(eventId)
+  const {
+    data: ordersData,
+    isLoading: ordersLoading,
+    error: ordersError,
+  } = useOrders(eventId, {
+    limit: 10,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  })
+
+  const transactions = ordersData?.items || []
+  const isLoading = metricsLoading || ordersLoading
+  const hasError = metricsError || ordersError
+
+  const defaultMetrics = {
+    totalRevenue: 0,
+    netRevenue: 0,
+    creditCardRevenue: 0,
+    pixRevenue: 0,
+    creditCardPercentage: 0,
+    pixPercentage: 0,
+    creditCardTransactions: 0,
+    pixTransactions: 0,
+    platformFee: 0,
+    paymentFee: 0,
+    totalFees: 0,
+  }
+
+  const currentMetrics = metrics || defaultMetrics
+
+  if (hasError) {
+    return <ErrorState message="Erro ao carregar dados financeiros" />
+  }
+
   return (
     <div className="space-y-6">
       {/* Financial Stats */}
@@ -50,8 +59,19 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 67.543,00</div>
-            <p className="text-xs text-muted-foreground">+12% vs mês anterior</p>
+            <div className="text-2xl font-bold">
+              {isLoading ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                `R$ ${currentMetrics.totalRevenue.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {currentMetrics.totalRevenue === 0 ? "Nenhuma venda ainda" : "Receita bruta total"}
+            </p>
           </CardContent>
         </Card>
 
@@ -61,7 +81,16 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 63.890,00</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                `R$ ${currentMetrics.netRevenue.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">Após taxas e comissões</p>
           </CardContent>
         </Card>
@@ -72,8 +101,17 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 45.230,00</div>
-            <p className="text-xs text-muted-foreground">67% do total</p>
+            <div className="text-2xl font-bold">
+              {isLoading ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                `R$ ${currentMetrics.creditCardRevenue.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">{currentMetrics.creditCardPercentage.toFixed(0)}% do total</p>
           </CardContent>
         </Card>
 
@@ -83,8 +121,17 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
             <Banknote className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 22.313,00</div>
-            <p className="text-xs text-muted-foreground">33% do total</p>
+            <div className="text-2xl font-bold">
+              {isLoading ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                `R$ ${currentMetrics.pixRevenue.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">{currentMetrics.pixPercentage.toFixed(0)}% do total</p>
           </CardContent>
         </Card>
       </div>
@@ -95,11 +142,11 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
           <div className="flex items-center justify-between">
             <CardTitle>Transações Recentes</CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={isLoading}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Atualizar
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={transactions.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
               </Button>
@@ -107,40 +154,55 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {transactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                    {transaction.method === "credit_card" ? (
-                      <CreditCard className="h-5 w-5 text-primary" />
-                    ) : (
-                      <Banknote className="h-5 w-5 text-primary" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-medium">{transaction.participant}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {transaction.ticketType} • {transaction.method === "credit_card" ? "Cartão" : "PIX"}
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : transactions.length === 0 ? (
+            <EmptyState
+              title="Nenhuma transação encontrada"
+              description="As transações aparecerão aqui conforme os pedidos forem processados."
+            />
+          ) : (
+            <div className="space-y-4">
+              {transactions.map((transaction) => (
+                <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      {transaction.paymentMethod === "credit_card" ? (
+                        <CreditCard className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Banknote className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-medium">{transaction.participant?.name || "Participante"}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {transaction.ticketType} • {transaction.paymentMethod === "credit_card" ? "Cartão" : "PIX"}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="font-medium">R$ {transaction.amount.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(transaction.date).toLocaleDateString("pt-BR")}
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="font-medium">R$ {transaction.total.toFixed(2)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(transaction.createdAt).toLocaleDateString("pt-BR")}
+                      </div>
                     </div>
-                  </div>
 
-                  <Badge variant={transaction.status === "completed" ? "default" : "secondary"}>
-                    {transaction.status === "completed" ? "Concluída" : "Pendente"}
-                  </Badge>
+                    <Badge variant={transaction.status === "completed" ? "default" : "secondary"}>
+                      {transaction.status === "completed"
+                        ? "Concluída"
+                        : transaction.status === "pending"
+                          ? "Pendente"
+                          : "Cancelada"}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -151,28 +213,36 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
             <CardTitle>Métodos de Pagamento</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  <span>Cartão de Crédito</span>
+            {isLoading ? (
+              <div className="flex justify-center py-4">
+                <LoadingSpinner size="sm" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    <span>Cartão de Crédito</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium">{currentMetrics.creditCardPercentage.toFixed(0)}%</div>
+                    <div className="text-sm text-muted-foreground">
+                      {currentMetrics.creditCardTransactions} transações
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-medium">67%</div>
-                  <div className="text-sm text-muted-foreground">259 transações</div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Banknote className="h-4 w-4" />
+                    <span>PIX</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium">{currentMetrics.pixPercentage.toFixed(0)}%</div>
+                    <div className="text-sm text-muted-foreground">{currentMetrics.pixTransactions} transações</div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Banknote className="h-4 w-4" />
-                  <span>PIX</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">33%</div>
-                  <div className="text-sm text-muted-foreground">128 transações</div>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -181,20 +251,44 @@ export function FinancialSection({ eventId }: FinancialSectionProps) {
             <CardTitle>Taxas e Comissões</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span>Taxa da plataforma (5%)</span>
-                <span className="font-medium">R$ 3.377,15</span>
+            {isLoading ? (
+              <div className="flex justify-center py-4">
+                <LoadingSpinner size="sm" />
               </div>
-              <div className="flex items-center justify-between">
-                <span>Taxa de pagamento</span>
-                <span className="font-medium">R$ 275,85</span>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span>Taxa da plataforma (5%)</span>
+                  <span className="font-medium">
+                    R${" "}
+                    {currentMetrics.platformFee.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Taxa de pagamento</span>
+                  <span className="font-medium">
+                    R${" "}
+                    {currentMetrics.paymentFee.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                <div className="border-t pt-2 flex items-center justify-between font-medium">
+                  <span>Total de taxas</span>
+                  <span>
+                    R${" "}
+                    {currentMetrics.totalFees.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
               </div>
-              <div className="border-t pt-2 flex items-center justify-between font-medium">
-                <span>Total de taxas</span>
-                <span>R$ 3.653,00</span>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

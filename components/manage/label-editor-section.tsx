@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Tag, QrCode, Settings } from "lucide-react"
+import { useParticipants } from "@/lib/api-hooks"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ErrorState } from "@/components/ui/error-state"
 
 interface LabelEditorSectionProps {
   eventId: string
@@ -64,22 +67,13 @@ const fieldOptions = [
   { value: "state", label: "Estado" },
 ]
 
-const sampleData = {
-  name: "João Silva Santos",
-  email: "joao@empresa.com",
-  phone: "(11) 99999-9999",
-  document: "123.456.789-00",
-  company: "Tech Corp Ltda",
-  position: "Desenvolvedor Senior",
-  city: "São Paulo",
-  state: "SP",
-}
-
 export function LabelEditorSection({ eventId, onBack }: LabelEditorSectionProps) {
   const [selectedSize, setSelectedSize] = useState<LabelSize>("large")
   const [selectedModel, setSelectedModel] = useState<LayoutModel>("standard")
   const [selectedFields, setSelectedFields] = useState<string[]>(["email"])
   const [scale, setScale] = useState(1)
+
+  const { data: participantsData, isLoading, error } = useParticipants(eventId, { limit: 1 })
 
   useEffect(() => {
     const updateScale = () => {
@@ -118,6 +112,25 @@ export function LabelEditorSection({ eventId, onBack }: LabelEditorSectionProps)
     qrSize: currentSize.qrSize * scale,
     padding: currentSize.padding * scale,
     spacing: currentSize.spacing * scale,
+  }
+
+  const sampleData = participantsData?.data?.[0] || {
+    name: "Nome do Participante",
+    email: "participante@email.com",
+    phone: "(11) 99999-9999",
+    document: "123.456.789-00",
+    company: "Empresa Exemplo",
+    position: "Cargo Exemplo",
+    city: "São Paulo",
+    state: "SP",
+  }
+
+  if (isLoading) {
+    return <LoadingSpinner message="Carregando configurações de etiquetas..." />
+  }
+
+  if (error) {
+    return <ErrorState message="Erro ao carregar dados para preview das etiquetas" />
   }
 
   return (

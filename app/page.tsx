@@ -1,7 +1,7 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { MetricsCards } from "@/components/metrics-cards"
-import { EventsGrid } from "@/components/events-grid"
-import { QuickActions } from "@/components/quick-actions"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
+import { MetricsCards } from "@/components/dashboard/metrics-cards"
+import { EventsGrid } from "@/components/events/events-grid"
+import { QuickActions } from "@/components/dashboard/quick-actions"
 
 export default function Dashboard() {
   return (

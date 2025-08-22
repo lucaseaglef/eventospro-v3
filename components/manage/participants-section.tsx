@@ -7,120 +7,95 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Download, Mail, Filter, Users, UserCheck, UserX, Clock } from "lucide-react"
 import { ParticipantDetailsModal } from "../participant-details-modal"
 import { useState } from "react"
+import { useParticipants, useEventMetrics } from "@/lib/api-hooks"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ErrorState } from "@/components/ui/error-state"
 
 interface ParticipantsSectionProps {
   eventId: string
 }
 
-const participants = [
-  {
-    id: "1",
-    name: "Ana Silva",
-    email: "ana.silva@email.com",
-    ticketType: "VIP",
-    registrationDate: "2024-02-15",
-    status: "confirmed",
-    checkedIn: true,
-  },
-  {
-    id: "2",
-    name: "Carlos Santos",
-    email: "carlos.santos@email.com",
-    ticketType: "Premium",
-    registrationDate: "2024-02-18",
-    status: "confirmed",
-    checkedIn: false,
-  },
-  {
-    id: "3",
-    name: "Maria Oliveira",
-    email: "maria.oliveira@email.com",
-    ticketType: "Standard",
-    registrationDate: "2024-02-20",
-    status: "pending",
-    checkedIn: false,
-  },
-]
-
 export function ParticipantsSection({ eventId }: ParticipantsSectionProps) {
   const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
+  const {
+    data: participantsData,
+    isLoading: participantsLoading,
+    error: participantsError,
+  } = useParticipants(eventId, { limit: 5 })
+  const { data: metricsData, isLoading: metricsLoading } = useEventMetrics(eventId)
+
   const handleParticipantClick = (participantId: string) => {
-    console.log("[v0] Clique no participante (gerenciamento):", participantId)
     setSelectedParticipant(participantId)
     setIsModalOpen(true)
   }
 
   const handleNavigateToOrder = (orderId: string) => {
-    console.log("Navegando para pedido:", orderId)
     window.location.href = `/sales?order=${orderId}`
   }
 
   const getSelectedParticipantData = () => {
-    if (!selectedParticipant) return null
+    if (!selectedParticipant || !participantsData?.data) return null
 
-    const participant = participants.find((p) => p.id === selectedParticipant)
+    const participant = participantsData.data.find((p) => p.id === selectedParticipant)
     if (!participant) return null
 
     return {
-      id: `PART-${participant.id.padStart(3, "0")}`,
+      id: participant.id,
       nome: participant.name,
       email: participant.email,
-      telefone: "(11) 99999-9999",
-      documento: "123.456.789-00",
-      empresa: "TechCorp",
-      cargo: "Desenvolvedor Senior",
-      endereco: "Rua das Flores, 123",
-      cidade: "São Paulo",
-      estado: "SP",
-      cep: "01234-567",
+      telefone: participant.phone || "(11) 99999-9999",
+      documento: participant.document || "123.456.789-00",
+      empresa: participant.company || "Empresa não informada",
+      cargo: participant.position || "Cargo não informado",
+      endereco: participant.address || "Endereço não informado",
+      cidade: participant.city || "São Paulo",
+      estado: participant.state || "SP",
+      cep: participant.zipCode || "01234-567",
 
-      ingressoId: `REG${participant.id.padStart(3, "0")}-245E166F`,
-      tipoIngresso: participant.ticketType,
-      codigoIngresso: `${participant.ticketType.toUpperCase()}2024-${participant.id.padStart(3, "0")}`,
+      ingressoId: participant.ticketId || `REG${participant.id}-245E166F`,
+      tipoIngresso: participant.ticketType || "Regular",
+      codigoIngresso: participant.ticketCode || `CODE-${participant.id}`,
       qrCode:
+        participant.qrCode ||
         "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzAwMCIvPgogIDxyZWN0IHg9IjEwIiB5PSIxMCIgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIGZpbGw9IiNmZmYiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjEwNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxMiI+UVIgQ29kZTwvdGV4dD4KPC9zdmc+",
 
-      numeroPedido: `VENDA-${participant.id.padStart(3, "0")}`,
-      valorIngresso: participant.ticketType === "VIP" ? 299.9 : participant.ticketType === "Premium" ? 199.9 : 99.9,
+      numeroPedido: participant.orderId || `ORDER-${participant.id}`,
+      valorIngresso: participant.ticketPrice || 99.9,
 
-      status:
-        participant.status === "confirmed" ? "confirmado" : participant.status === "pending" ? "pendente" : "cancelado",
-      checkinRealizado: participant.checkedIn,
-      dataRegistro: participant.registrationDate + "T14:30:00Z",
-      dataCheckin: participant.checkedIn ? "2024-11-20T09:15:00Z" : undefined,
+      status: participant.status as "confirmado" | "pendente" | "cancelado",
+      checkinRealizado: participant.checkedIn || false,
+      dataRegistro: participant.createdAt || new Date().toISOString(),
+      dataCheckin: participant.checkedInAt,
 
-      historico: [
+      historico: participant.history || [
         {
           id: "1",
           acao: "Inscrição realizada",
-          data: participant.registrationDate + "T14:30:00Z",
+          data: participant.createdAt || new Date().toISOString(),
           detalhes: "Participante se inscreveu no evento",
           tipo: "info" as const,
         },
-        {
-          id: "2",
-          acao: "Pagamento confirmado",
-          data: participant.registrationDate + "T14:35:00Z",
-          detalhes: "Pagamento via cartão de crédito aprovado",
-          tipo: "success" as const,
-        },
-        ...(participant.checkedIn
-          ? [
-              {
-                id: "3",
-                acao: "Check-in realizado",
-                data: "2024-11-20T09:15:00Z",
-                detalhes: "Check-in realizado na recepção do evento",
-                tipo: "success" as const,
-              },
-            ]
-          : []),
       ],
 
-      avatar: "/placeholder.svg",
+      avatar: participant.avatar,
     }
+  }
+
+  if (participantsLoading || metricsLoading) {
+    return <LoadingSpinner message="Carregando dados dos participantes..." />
+  }
+
+  if (participantsError) {
+    return <ErrorState message="Erro ao carregar participantes" />
+  }
+
+  const metrics = metricsData || {
+    totalParticipants: 0,
+    checkedInParticipants: 0,
+    pendingParticipants: 0,
+    cancelledParticipants: 0,
   }
 
   return (
@@ -134,8 +109,10 @@ export function ParticipantsSection({ eventId }: ParticipantsSectionProps) {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">387</div>
-              <p className="text-xs text-muted-foreground">+12% desde ontem</p>
+              <div className="text-2xl font-bold">{metrics.totalParticipants}</div>
+              <p className="text-xs text-muted-foreground">
+                {metrics.totalParticipants === 0 ? "Nenhum participante ainda" : "Participantes confirmados"}
+              </p>
             </CardContent>
           </Card>
 
@@ -145,8 +122,12 @@ export function ParticipantsSection({ eventId }: ParticipantsSectionProps) {
               <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">156</div>
-              <p className="text-xs text-muted-foreground">40% do total</p>
+              <div className="text-2xl font-bold">{metrics.checkedInParticipants}</div>
+              <p className="text-xs text-muted-foreground">
+                {metrics.totalParticipants > 0
+                  ? `${Math.round((metrics.checkedInParticipants / metrics.totalParticipants) * 100)}% do total`
+                  : "Aguardando participantes"}
+              </p>
             </CardContent>
           </Card>
 
@@ -156,7 +137,7 @@ export function ParticipantsSection({ eventId }: ParticipantsSectionProps) {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">23</div>
+              <div className="text-2xl font-bold">{metrics.pendingParticipants}</div>
               <p className="text-xs text-muted-foreground">Aguardando confirmação</p>
             </CardContent>
           </Card>
@@ -167,8 +148,12 @@ export function ParticipantsSection({ eventId }: ParticipantsSectionProps) {
               <UserX className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">2% do total</p>
+              <div className="text-2xl font-bold">{metrics.cancelledParticipants}</div>
+              <p className="text-xs text-muted-foreground">
+                {metrics.totalParticipants > 0
+                  ? `${Math.round((metrics.cancelledParticipants / metrics.totalParticipants) * 100)}% do total`
+                  : "Nenhum cancelamento"}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -201,45 +186,55 @@ export function ParticipantsSection({ eventId }: ParticipantsSectionProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {participants.map((participant) => (
-                <div
-                  key={participant.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => handleParticipantClick(participant.id)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary">
-                        {participant.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </span>
+            {!participantsData?.data || participantsData.data.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Nenhum participante ainda</h3>
+                <p className="text-muted-foreground">
+                  Os participantes aparecerão aqui conforme se inscreverem no evento.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {participantsData.data.map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => handleParticipantClick(participant.id)}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">
+                          {participant.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-medium">{participant.name}</div>
+                        <div className="text-sm text-muted-foreground">{participant.email}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-medium">{participant.name}</div>
-                      <div className="text-sm text-muted-foreground">{participant.email}</div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-4">
-                    <Badge variant="outline">{participant.ticketType}</Badge>
-                    <Badge variant={participant.status === "confirmed" ? "default" : "secondary"}>
-                      {participant.status === "confirmed" ? "Confirmado" : "Pendente"}
-                    </Badge>
-                    {participant.checkedIn && (
-                      <Badge variant="default" className="bg-green-500">
-                        Check-in
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline">{participant.ticketType || "Regular"}</Badge>
+                      <Badge variant={participant.status === "confirmado" ? "default" : "secondary"}>
+                        {participant.status}
                       </Badge>
-                    )}
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(participant.registrationDate).toLocaleDateString("pt-BR")}
+                      {participant.checkedIn && (
+                        <Badge variant="default" className="bg-green-500">
+                          Check-in
+                        </Badge>
+                      )}
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(participant.createdAt || Date.now()).toLocaleDateString("pt-BR")}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

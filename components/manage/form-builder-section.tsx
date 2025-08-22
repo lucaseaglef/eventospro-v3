@@ -35,6 +35,8 @@ import {
 } from "lucide-react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import { useTickets } from "@/hooks/use-tickets"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ErrorState } from "@/components/ui/error-state"
 
 interface FormField {
   id: string
@@ -51,8 +53,7 @@ interface FormBuilderSectionProps {
   eventId: string
 }
 
-// Predefined field types with icons and configurations
-const fieldTypes = [
+const getFieldTypes = () => [
   // Standard fields
   { id: "text", label: "Texto Curto", icon: Type, category: "basic" },
   { id: "textarea", label: "Texto Longo", icon: AlignLeft, category: "basic" },
@@ -82,8 +83,7 @@ const fieldTypes = [
   { id: "payment", label: "Dados de Pagamento", icon: CreditCard, category: "predefined" },
 ]
 
-// Predefined field blocks
-const predefinedBlocks = {
+const getPredefinedBlocks = () => ({
   address: [
     { type: "text", label: "Rua", placeholder: "Nome da rua", required: true },
     { type: "text", label: "Número", placeholder: "Número", required: true },
@@ -112,26 +112,29 @@ const predefinedBlocks = {
     { type: "text", label: "Validade", placeholder: "MM/AA", required: true },
     { type: "text", label: "CVV", placeholder: "000", required: true },
   ],
-}
+})
 
 export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
-  const { tickets } = useTickets(eventId)
-
+  const { tickets, isLoading: ticketsLoading, error: ticketsError } = useTickets(eventId)
   const [fields, setFields] = useState<FormField[]>([])
+  const [selectedField, setSelectedField] = useState<FormField | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const fieldTypes = getFieldTypes()
+  const predefinedBlocks = getPredefinedBlocks()
 
   useEffect(() => {
-    if (tickets.length > 0) {
+    if (tickets && tickets.length > 0) {
       const allTicketIds = tickets.map((ticket) => ticket.id)
 
-      setFields([
-        // Default required fields - automatically linked to all tickets
+      const defaultFields: FormField[] = [
         {
           id: "nome",
           type: "text",
           label: "Nome",
           placeholder: "Digite seu nome",
           required: true,
-          linkedTickets: allTicketIds, // Link to all tickets by default
+          linkedTickets: allTicketIds,
           description: "Campo obrigatório padrão",
         },
         {
@@ -140,7 +143,7 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
           label: "Sobrenome",
           placeholder: "Digite seu sobrenome",
           required: true,
-          linkedTickets: allTicketIds, // Link to all tickets by default
+          linkedTickets: allTicketIds,
           description: "Campo obrigatório padrão",
         },
         {
@@ -149,7 +152,7 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
           label: "CPF",
           placeholder: "000.000.000-00",
           required: true,
-          linkedTickets: allTicketIds, // Link to all tickets by default
+          linkedTickets: allTicketIds,
           description: "Campo obrigatório padrão",
         },
         {
@@ -158,7 +161,7 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
           label: "Telefone",
           placeholder: "(00) 00000-0000",
           required: true,
-          linkedTickets: allTicketIds, // Link to all tickets by default
+          linkedTickets: allTicketIds,
           description: "Campo obrigatório padrão",
         },
         {
@@ -167,14 +170,29 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
           label: "E-mail",
           placeholder: "seu@email.com",
           required: true,
-          linkedTickets: allTicketIds, // Link to all tickets by default
+          linkedTickets: allTicketIds,
           description: "Campo obrigatório padrão",
         },
-      ])
+      ]
+
+      setFields(defaultFields)
     }
   }, [tickets])
 
-  const [selectedField, setSelectedField] = useState<FormField | null>(null)
+  const handleSaveForm = async () => {
+    try {
+      setIsSaving(true)
+      // TODO: Replace with actual API call
+      console.log("Saving form fields:", fields)
+      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
+      // Success feedback could be added here
+    } catch (error) {
+      console.error("Failed to save form:", error)
+      // Error handling could be added here
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const addField = (fieldType: string) => {
     const fieldConfig = fieldTypes.find((f) => f.id === fieldType)
@@ -190,7 +208,7 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
         placeholder: field.placeholder,
         required: field.required,
         options: field.options || [],
-        linkedTickets: [], // Start with no tickets linked for new fields
+        linkedTickets: [],
         description: `Campo do bloco ${fieldConfig.label}`,
       }))
       setFields([...fields, ...newFields])
@@ -204,7 +222,7 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
         required: false,
         options:
           fieldType === "select" || fieldType === "radio" || fieldType === "checkbox" ? ["Opção 1", "Opção 2"] : [],
-        linkedTickets: [], // Start with no tickets linked for new fields
+        linkedTickets: [],
       }
       setFields([...fields, newField])
     }
@@ -240,12 +258,37 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
 
   const toggleAllTickets = (fieldId: string, checked: boolean) => {
     if (!checked && isDefaultField(fieldId)) {
-      return // Don't allow unchecking for default fields
+      return
     }
 
-    const allTicketIds = tickets.map((ticket) => ticket.id)
+    const allTicketIds = tickets?.map((ticket) => ticket.id) || []
     const newLinkedTickets = checked ? allTicketIds : []
     updateField(fieldId, { linkedTickets: newLinkedTickets })
+  }
+
+  if (ticketsError) {
+    return <ErrorState message="Erro ao carregar ingressos. Tente novamente." />
+  }
+
+  if (ticketsLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!tickets || tickets.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-foreground mb-2">Nenhum ingresso encontrado</h3>
+        <p className="text-muted-foreground mb-4">
+          Você precisa criar pelo menos um tipo de ingresso antes de configurar o formulário.
+        </p>
+        <Button>Criar Primeiro Ingresso</Button>
+      </div>
+    )
   }
 
   return (
@@ -265,9 +308,11 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
           <Button
             size="lg"
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            onClick={handleSaveForm}
+            disabled={isSaving}
           >
-            <Save className="h-5 w-5 mr-2" />
-            Salvar Formulário
+            {isSaving ? <LoadingSpinner size="sm" className="mr-2" /> : <Save className="h-5 w-5 mr-2" />}
+            {isSaving ? "Salvando..." : "Salvar Formulário"}
           </Button>
         </div>
 
@@ -636,7 +681,7 @@ export function FormBuilderSection({ eventId }: FormBuilderSectionProps) {
                             checked={selectedField.linkedTickets.includes(ticket.id)}
                             onCheckedChange={(checked) => {
                               if (!checked && isDefaultField(selectedField.id)) {
-                                return // Don't allow unchecking for default fields
+                                return
                               }
 
                               const newLinkedTickets = checked
